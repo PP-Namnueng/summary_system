@@ -11,7 +11,7 @@ from typing import Generator
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from summarizer.ollama_client import OllamaSummarizer
+from summary.summarizer.ollama_client import OllamaSummarizer
 
 
 class TestOllamaSummarizerInit(unittest.TestCase):

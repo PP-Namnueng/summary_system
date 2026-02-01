@@ -7,7 +7,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from agents.sentinel import SentinelAgent
+from summary.agents.sentinel import SentinelAgent
 
 class TestSentinelResolution(unittest.TestCase):
     def setUp(self):

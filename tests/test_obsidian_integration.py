@@ -12,7 +12,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from integrations.obsidian import save_to_obsidian, find_obsidian_vaults
+from summary.integrations.obsidian import save_to_obsidian, find_obsidian_vaults
 
 
 class TestObsidianIntegration(unittest.TestCase):

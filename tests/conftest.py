@@ -9,6 +9,8 @@ from pathlib import Path
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+# Add src directory to path for new package structure
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 # Test directory
 TEST_DIR = Path(__file__).parent

@@ -4,7 +4,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from agents.observer import ObserverAgent
+from summary.agents.observer import ObserverAgent
 
 def test_observer():
     print("Testing ObserverAgent (News Digest Mode)...")

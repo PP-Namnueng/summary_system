@@ -1,0 +1,193 @@
+/* 
+   theme.css - Hyper-Premium V5 (Twilight Crystal)
+   Aesthetics: Deep Ocean/Twilight Gradient, Frosted Ice, Vibrant
+*/
+
+:root {
+    /* --- Palette: Twilight Crystal --- */
+    --bg-deep: #0f172a;
+    /* Slate 900 */
+    --bg-gradient-start: #1e1b4b;
+    /* Indigo 950 */
+    --bg-gradient-end: #312e81;
+    /* Indigo 900 */
+
+    /* Glass now has a white tint (Frost) instead of black tint (Smoke) */
+    --glass-surface: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --glass-highlight: rgba(255, 255, 255, 0.25);
+    --glass-blur: 25px;
+
+    --accent-primary: #a78bfa;
+    /* Soft Violet */
+    --accent-secondary: #2dd4bf;
+    /* Teal */
+    --accent-glow: 0 0 20px rgba(167, 139, 250, 0.4);
+
+    --text-primary: #f8fafc;
+    /* Ice White */
+    --text-secondary: #cbd5e1;
+    /* Blue Grey */
+}
+
+/* Global Reset */
+html,
+body {
+    background-color: var(--bg-deep) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', sans-serif !important;
+    overflow-x: hidden;
+}
+
+/* --- Rich Gradient Background (Twilight) --- */
+.stApp {
+    background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-deep), var(--bg-gradient-end));
+    background-size: 400% 400%;
+    animation: twilightShift 15s ease infinite;
+    background-attachment: fixed;
+}
+
+@keyframes twilightShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* --- Utility: Crystal Card --- */
+.glass-card {
+    background: var(--glass-surface);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-highlight);
+    /* Icy top edge */
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    /* Softer shadow */
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-card:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.07);
+    /* Lighten on hover */
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3), var(--accent-glow);
+}
+
+/* --- Navigation: Floating Ice Blocks --- */
+.nav-item {
+    background: rgba(255, 255, 255, 0.05);
+    /* White tint */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    margin: 6px 0;
+    padding: 12px 18px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    transform: translateX(4px);
+}
+
+.nav-item.active {
+    background: linear-gradient(90deg, rgba(167, 139, 250, 0.2), rgba(45, 212, 191, 0.1)) !important;
+    border-color: var(--accent-primary);
+    color: white;
+    box-shadow: 0 0 15px rgba(167, 139, 250, 0.2);
+}
+
+/* --- Buttons: Frost/Ice --- */
+.stButton button,
+.btn-glass {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s !important;
+}
+
+.stButton button:hover,
+.btn-glass:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: white !important;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3) !important;
+    transform: scale(1.02);
+}
+
+.stButton button[kind="primary"] {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* --- Streamlit Overrides --- */
+/* Sidebar: Translucent Frost */
+section[data-testid="stSidebar"] {
+    background-color: rgba(15, 23, 42, 0.6) !important;
+    /* Deep Blue, not black */
+    backdrop-filter: blur(30px) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Inputs: Lighter fields */
+.stTextInput input,
+.stTextArea textarea,
+.stSelectbox div[data-baseweb="select"] {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 10px !important;
+    color: white !important;
+}
+
+.stTextInput input:focus {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--accent-secondary) !important;
+}
+
+/* Typography Gradient */
+h1,
+h2,
+h3 {
+    background: linear-gradient(to right, #ffffff, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* --- Canvas Positioning --- */
+#bgCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.stApp {
+    background: transparent !important;
+    z-index: 1;
+}
+
+.block-container {
+    z-index: 10;
+    position: relative;
+}

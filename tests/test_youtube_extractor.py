@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from extractors.youtube import YouTubeExtractor
+from summary.extractors.youtube import YouTubeExtractor
 
 
 class TestYouTubeExtractor(unittest.TestCase):

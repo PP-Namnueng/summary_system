@@ -11,7 +11,7 @@ import asyncio
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from agents.research_agent import ResearchAgent
+from summary.agents.research_agent import ResearchAgent
 
 
 class TestResearchAgentInit(unittest.TestCase):

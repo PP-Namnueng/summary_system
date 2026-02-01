@@ -8,8 +8,8 @@ import shutil
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agents.observer import ObserverAgent
-from library.github_provider import GitHubProvider
+from summary.agents.observer import ObserverAgent
+from summary.library.github_provider import GitHubProvider
 
 def test_manual_trending():
     print("Testing GitHubProvider directly...")

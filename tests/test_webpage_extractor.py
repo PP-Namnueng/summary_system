@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from extractors.webpage import WebPageExtractor
+from summary.extractors.webpage import WebPageExtractor
 
 
 class TestWebPageExtractor(unittest.TestCase):
