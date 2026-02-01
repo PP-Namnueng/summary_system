@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+
+# Virtual Environment
+venv/
+tts_env/
+.venv/
+
+# Data & Large Files
+library/
+*.mp3
+*.wav
+
+# Debug & Temp Files
+debug_*.txt
+manual_debug*.txt
+audit_report.txt
+install_log.txt
+sanity*.txt
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+sentinel_outputs/*.mp3
+test_*.json

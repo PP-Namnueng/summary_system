@@ -1,0 +1,28 @@
+[
+    {
+        "topic": "Artificial Intelligence News",
+        "last_checked": "2026-01-29 19:51:26",
+        "last_status": "Error"
+    },
+    {
+        "topic": "Ollama LLM Updates",
+        "last_checked": "2026-01-29 19:51:50",
+        "last_status": "Updated (5 items)"
+    },
+    {
+        "topic": "AI Engineer",
+        "last_checked": "2026-01-29 19:52:14",
+        "last_status": "Updated (5 items)"
+    },
+    {
+        "topic": "New tools about AI",
+        "last_checked": "2026-01-29 19:52:14",
+        "last_status": "Error"
+    },
+    {
+        "topic": "GitHub Top Trending",
+        "type": "github_trending",
+        "last_checked": "2026-01-29 19:52:36",
+        "last_status": "Updated (5 items)"
+    }
+]

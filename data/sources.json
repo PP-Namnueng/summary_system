@@ -1,0 +1,127 @@
+[
+    {
+        "name": "Google Workspace Developers",
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC_x5XG1OV2P6uZZ5FSM9Ttw",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "2026-01-26 11:05:30",
+        "seen_ids": [
+            "yt:video:0XMsTH36vRw",
+            "yt:video:xjgzfMhViPk",
+            "yt:video:WJGubuQ6bU4",
+            "yt:video:JhzUVua-wOA",
+            "yt:video:Jqmp9-TDZiM",
+            "yt:video:SIjBTpaF6vY"
+        ]
+    },
+    {
+        "name": "Marina Wyss - AI & Machine Learning",
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZf_9SblvM8iTTkouFEcHtA",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "2026-01-23 05:35:32",
+        "seen_ids": [
+            "yt:video:9YHkqzJ0Ctw"
+        ]
+    },
+    {
+        "name": "BoomBigNose",
+        "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCgohRnUh6hCVP6aKnygi-dg",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "2026-01-29 03:22:09",
+        "seen_ids": [
+            "yt:video:hhNPPhcWnYQ",
+            "yt:video:aaKTrGgRFws",
+            "yt:video:FbAi8A-sUzA",
+            "yt:video:aij-b6EM_jI"
+        ]
+    },
+    {
+        "name": "ArXiv - AI Papers (cs.CL)",
+        "url": "http://export.arxiv.org/rss/cs.CL",
+        "type": "rss",
+        "category": "paper",
+        "last_checked": "2026-01-30 00:50:11",
+        "seen_ids": [
+            "oai:arXiv.org:2601.18987v1",
+            "oai:arXiv.org:2601.19913v1"
+        ]
+    },
+    {
+        "name": "Dev.to - AI",
+        "url": "https://dev.to/feed/tag/ai",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    },
+    {
+        "name": "Dev.to - MLOps",
+        "url": "https://dev.to/feed/tag/mlops",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "2026-01-30 01:42:46",
+        "seen_ids": [
+            "https://dev.to/apprecode/mlops-workflow-from-definition-to-production-ready-pipelines-1lbl"
+        ]
+    },
+    {
+        "name": "Dev.to - NLP",
+        "url": "https://dev.to/feed/tag/nlp",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    },
+    {
+        "name": "Dev.to - LLM",
+        "url": "https://dev.to/feed/tag/llm",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    },
+    {
+        "name": "Dev.to - AI Engineer",
+        "url": "https://dev.to/feed/tag/ai-engineer",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    },
+    {
+        "name": "Reddit - LocalLLaMA",
+        "url": "https://www.reddit.com/r/LocalLLaMA/new/.rss",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    },
+    {
+        "name": "Reddit - MLOps",
+        "url": "https://www.reddit.com/r/MLOps/new/.rss",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    },
+    {
+        "name": "Reddit - AI Engineering",
+        "url": "https://www.reddit.com/r/AIEngineering/new/.rss",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "2026-01-30 01:43:38",
+        "seen_ids": [
+            "https://www.reddit.com/r/AIEngineering/new/t3_1qptbn6"
+        ]
+    },
+    {
+        "name": "Hacker News",
+        "url": "https://news.ycombinator.com/rss",
+        "type": "rss",
+        "category": "news",
+        "last_checked": "",
+        "seen_ids": []
+    }
+]

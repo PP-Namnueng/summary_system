@@ -1,0 +1,19 @@
+# Web framework
+streamlit>=1.30.0
+
+# LLM
+ollama>=0.1.0
+
+# Content extraction
+youtube-transcript-api>=0.6.2
+yt-dlp>=2024.1.0
+trafilatura>=1.6.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+
+# PDF processing
+PyMuPDF>=1.23.0
+
+# Utilities
+python-dotenv>=1.0.0
+validators>=0.22.0
