@@ -1,8 +1,9 @@
 import json
 import os
 import datetime
+import asyncio
 from duckduckgo_search import DDGS
-from summarizer.ollama_client import OllamaSummarizer
+from summary.summarizer import OllamaSummarizer
 from library.github_provider import GitHubProvider
 
 class ObserverAgent:
@@ -65,70 +66,105 @@ class ObserverAgent:
             return True
         return False
 
+    async def scan_topic_async(self, topic_data):
+        """
+        Async version of scan_topic.
+        """
+        # Run the synchronous scan_topic in a separate thread to not block the event loop
+        return await asyncio.to_thread(self._scan_topic_internal, topic_data)
+
     def scan_topic(self, topic_data):
         """
-        Scans a topic for recent news and returns the Top 5 curated stories.
-        Returns a dict with 'top_news': list of dicts {title, summary, url, date}.
+        Legacy synchronous wrapper
+        """
+        return self._scan_topic_internal(topic_data)
+
+    def _scan_topic_internal(self, topic_data):
+        """
+        Internal sync implementation of scanning logic
         """
         topic = topic_data['topic']
         source_type = topic_data.get('type', 'news')
-        print(f"DEBUG: Scanning topic: {topic} (Type: {source_type})")
+        # print(f"DEBUG: Scanning topic: {topic} (Type: {source_type})") # Disabled to prevent WinError 233 in threads
         
         # --- Type: GitHub Trending ---
         if source_type == 'github_trending':
             try:
                 provider = GitHubProvider()
-                # Get language from metadata if available
                 language = topic_data.get("language", None)
                 repos = provider.fetch_trending_repos(language=language)
                 
-                # Convert to news format
-                top_news = []
-                for repo in repos[:5]: # Top 5
-                    original_desc = repo.get('description', 'No description')
-                    
-                    # Translate/Summarize to Thai
-                    prompt = f"""
-                    Context: A software tool named "{repo['name']}".
-                    Description: "{original_desc}"
-                    
-                    Task: Explain what this tool does in Thai.
-                    Constraint 1: Output MUST be in Thai language only.
-                    Constraint 2: summary must be approximately 3 lines.
-                    """
-                    
-                    try:
-                        resp = self.summarizer._generate_response(prompt)
-                        thai_desc = resp.get("summary", "").strip()
-                        
-                        # Fallback if empty
-                        if not thai_desc:
-                            thai_desc = f"(Auto-translation failed: {original_desc})"
-                    except Exception as e:
-                        thai_desc = f"{original_desc} (Error: {e})"
+                if not repos:
+                    return {"top_news": [], "error": "No repos found"}
 
+                # Batch processing: summarize all 5 in one go
+                top_5_repos = repos[:5]
+                repo_descriptions = []
+                for i, r in enumerate(top_5_repos):
+                    desc = r.get('description', 'No description')
+                    repo_descriptions.append(f"Repo {i+1}: Name='{r['name']}', Desc='{desc}'")
+
+                combined_input = "\n".join(repo_descriptions)
+                
+                prompt = f"""
+                Task: Summarize these 5 GitHub repositories in Thai.
+                
+                Input:
+                {combined_input}
+                
+                Constraint: Return a JSON list of strings. Each string is a 3-line Thai summary for the corresponding repo.
+                Example Output:
+                [
+                    "Summary for repo 1...",
+                    "Summary for repo 2...",
+                    ...
+                ]
+                
+                Output JSON ONLY:"""
+
+                try:
+                    resp = self.summarizer._generate_response(prompt)
+                    output_text = resp.get("summary", "").strip()
+                    
+                    # Clean markdown code blocks if present
+                    if "```" in output_text:
+                        import re
+                        match = re.search(r"```(?:json)?(.*?)```", output_text, re.DOTALL)
+                        if match:
+                            output_text = match.group(1).strip()
+                            
+                    summaries = json.loads(output_text)
+                    
+                    # Ensure we have 5 items, fallback if mismatch
+                    if not isinstance(summaries, list) or len(summaries) != len(top_5_repos):
+                        summaries = [f"Summary gen failed. Original: {r.get('description')}" for r in top_5_repos]
+                        
+                except Exception as e:
+                    print(f"Batch summary failed: {e}")
+                    summaries = [r.get('description', '') for r in top_5_repos]
+
+                # Assemble final result
+                top_news = []
+                for i, repo in enumerate(top_5_repos):
+                    summary = summaries[i] if i < len(summaries) else repo.get('description', '')
                     top_news.append({
                         "title": f"📈 {repo['name']} ({repo['language']})",
-                        "summary": f"{thai_desc}\n(⭐ {repo['stars']} | 🍴 {repo['forks']})",
+                        "summary": f"{summary}\n(⭐ {repo['stars']} | 🍴 {repo['forks']})",
                         "url": repo['url'],
                         "date": datetime.datetime.now().strftime("%Y-%m-%d")
                     })
+                    
                 return {"top_news": top_news}
+
             except Exception as e:
                 return {"top_news": [], "error": f"GitHub Fetch failed: {e}"}
 
         # --- Type: News (Default) ---
-        # 1. Broad News Scan (Last 7 days to ensure coverage)
         results = []
         try:
             with DDGS() as ddgs:
-                # Get more results (15) to allow filtration
                 search_results = list(ddgs.news(topic, region="wt-wt", safesearch="off", timelimit="w", max_results=15))
-                # Map results to a temporary ID for the LLM to reference
                 for i, r in enumerate(search_results):
-                    # We pass the URL in the snippets so the LLM can grab it (or we map it back by index if unsafe)
-                    # Safest is to ask LLM to return the index or just copy the URL.
-                    # Let's give it an ID.
                     results.append(f"ID: {i} | Date: {r['date']} | Title: {r['title']} | Snippet: {r['body']} | Link: {r['url']}")
         except Exception as e:
             print(f"Error scanning topic {topic}: {e}")
@@ -169,14 +205,12 @@ class ObserverAgent:
         """
         
         try:
-            # Use internal _generate_response method which returns a dict
             resp_obj = self.summarizer._generate_response(prompt)
             
             if not resp_obj.get("success"):
                 return {"top_news": [], "error": f"LLM Generation failed: {resp_obj.get('error')}"}
                 
             response = resp_obj.get("summary", "")
-            # Clean up response to ensure valid JSON (sometimes LLMs add markdown code blocks)
             response = response.strip()
             if "```" in response:
                 import re
@@ -197,3 +231,4 @@ class ObserverAgent:
                 item['last_status'] = status
                 break
         self._save_watchlist()
+

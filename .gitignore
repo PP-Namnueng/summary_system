@@ -13,6 +13,7 @@ tts_env/
 
 # Data & Large Files
 library/
+data/library_index/
 *.mp3
 *.wav
 

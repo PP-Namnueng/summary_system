@@ -42,10 +42,11 @@
         "url": "http://export.arxiv.org/rss/cs.CL",
         "type": "rss",
         "category": "paper",
-        "last_checked": "2026-01-30 00:50:11",
+        "last_checked": "2026-02-02 20:28:54",
         "seen_ids": [
             "oai:arXiv.org:2601.18987v1",
-            "oai:arXiv.org:2601.19913v1"
+            "oai:arXiv.org:2601.19913v1",
+            "oai:arXiv.org:2601.22181v1"
         ]
     },
     {
@@ -53,8 +54,10 @@
         "url": "https://dev.to/feed/tag/ai",
         "type": "rss",
         "category": "news",
-        "last_checked": "",
-        "seen_ids": []
+        "last_checked": "2026-02-06 05:09:06",
+        "seen_ids": [
+            "https://dev.to/projedefteri/claude-opus-46-released-1m-token-context-and-agent-teams-proje-defteri-29je"
+        ]
     },
     {
         "name": "Dev.to - MLOps",
@@ -111,9 +114,10 @@
         "url": "https://www.reddit.com/r/AIEngineering/new/.rss",
         "type": "rss",
         "category": "news",
-        "last_checked": "2026-01-30 01:43:38",
+        "last_checked": "2026-02-06 05:01:29",
         "seen_ids": [
-            "https://www.reddit.com/r/AIEngineering/new/t3_1qptbn6"
+            "https://www.reddit.com/r/AIEngineering/new/t3_1qptbn6",
+            "https://www.reddit.com/r/AIEngineering/new/t3_1qvfrzp"
         ]
     },
     {

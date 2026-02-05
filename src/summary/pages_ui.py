@@ -11,6 +11,7 @@ from summary.agents.research_agent import ResearchAgent
 from summary.integrations import ObsidianIntegration
 from summary.extractors import YouTubeExtractor, WebPageExtractor, PDFExtractor
 from summary.library import DocumentStore, PDFProcessor, VectorStore, RAGEngine
+from library.cover_extractor import CoverExtractor
 
 def detect_content_type(url: str) -> str:
     """Auto-detect content type from URL"""
@@ -1284,42 +1285,104 @@ def render_autopilot(observer_agent, selected_model):
             else:
                 progress_bar = log_container.progress(0)
                 
-                for i, item in enumerate(watchlist_items):
-                    topic = item['topic']
-                    log_container.markdown(f"**Scanning: `{topic}`...**")
+                # Async runner
+                async def run_scans():
+                    tasks = []
+                    for item in watchlist_items:
+                        tasks.append(observer_agent.scan_topic_async(item))
                     
-                    # 1. Scan & Curate Top 5
-                    digest = observer_agent.scan_topic(item)
+                    completed_count = 0
+                    total = len(tasks)
                     
-                    if digest.get("error"):
-                         log_container.error(f"Error for {topic}: {digest['error']}")
-                         observer_agent.update_topic_status(topic, "Error")
-                    else:
-                         top_news = digest.get("top_news", [])
-                         count = len(top_news)
-                         log_container.success(f"  > Found {count} relevant updates.")
-                         observer_agent.update_topic_status(topic, f"Updated ({count} items)")
-                         
-                         # Display Result Card
-                         with results_container.container(border=True):
-                             st.markdown(f"### 📰 {topic}: Top Updates")
-                             st.caption(f"Last Updated: {datetime.datetime.now().strftime('%H:%M')}")
-                             
-                             if not top_news:
-                                 st.info("No significant news found today.")
-                             else:
-                                 for news in top_news:
-                                     st.markdown(f"**{news.get('title', 'Untitled')}**")
-                                     st.write(news.get('summary', ''))
-                                     # Formatting Source link
-                                     url = news.get("url", "#")
-                                     date = news.get("date", "")
-                                     st.markdown(f"[🔗 Source ({date})]({url})")
-                                     st.divider()
+                    # Use as_completed to update UI incrementally
+                    for future in asyncio.as_completed(tasks):
+                        # We need to map the result back to the topic. 
+                        # Since as_completed yields results out of order, we can't easily map back cleanly without wrapping.
+                        # However, the result dict doesn't contain the topic name by default.
+                        # Let's just update progress bar here, and handle the Result object.
+                        # Actually, wait. scan_topic doesn't return the topic name.
+                        # Let's fix this by wrapping the call.
+                        
+                        try:
+                            digest = await future
+                            completed_count += 1
+                            progress_bar.progress(completed_count / total)
+                            
+                            # We need to find WHICH topic this digest belongs to.
+                            # Since we can't easily know, we will rely on the fact that we can't easily log "Scanning X... Done" in order.
+                            # Instead, we will log "Processed 1/N..."
+                            
+                            if digest.get("error"):
+                                 log_container.error(f"Error in a topic: {digest['error']}")
+                            else:
+                                 top_news = digest.get("top_news", [])
+                                 count = len(top_news)
+                                 # We need the topic name for the UI update.
+                                 # This is a limitation of the current quick refactor.
+                                 # Let's assume the digest comes back safely.
+                                 # BUT, we need to show the results with the Topic Name header.
+                                 # The current scan_topic returns {"top_news": ...}
+                                 # It does NOT return the topic name. 
+                                 
+                                 # Let's modify the UI logic to run a slightly smarter wrapper here?
+                                 # No, we can't modify the Agent method easily without changing the return signature everywhere.
+                                 # Let's just display the results. 
+                                 # One issue: The Result Card needs the Topic Name.
+                                 pass 
 
-                    progress_bar.progress((i + 1) / len(watchlist_items))
+                        except Exception as e:
+                             log_container.error(f"Async Error: {e}")
+
+                # Improved Async Approach with Context & Rate Limiting
+                # Semaphore limits concurrent LLM calls to prevent 429 errors
+                MAX_CONCURRENT = 2
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT)
                 
-                log_container.success("News Digest Complete.")
+                async def process_item_with_context(item):
+                    topic = item['topic']
+                    async with semaphore:
+                        log_container.write(f"⏳ Starting scan: `{topic}`...")
+                        digest = await observer_agent.scan_topic_async(item)
+                    return topic, digest
+
+                async def run_parallel_scans():
+                    tasks = [process_item_with_context(item) for item in watchlist_items]
+                    
+                    for i, future in enumerate(asyncio.as_completed(tasks)):
+                        topic, digest = await future
+                        
+                        # Update Progress
+                        progress_bar.progress((i + 1) / len(watchlist_items))
+                        
+                        if digest.get("error"):
+                             log_container.error(f"❌ Error for {topic}: {digest['error']}")
+                             observer_agent.update_topic_status(topic, "Error")
+                        else:
+                             top_news = digest.get("top_news", [])
+                             count = len(top_news)
+                             log_container.success(f"✅ `{topic}`: Found {count} updates.")
+                             observer_agent.update_topic_status(topic, f"Updated ({count} items)")
+                             
+                             # Display Result Card
+                             with results_container.container(border=True):
+                                 st.markdown(f"### 📰 {topic}: Top Updates")
+                                 st.caption(f"Last Updated: {datetime.datetime.now().strftime('%H:%M')}")
+                                 
+                                 if not top_news:
+                                     st.info("No significant news found today.")
+                                 else:
+                                     for news in top_news:
+                                         st.markdown(f"**{news.get('title', 'Untitled')}**")
+                                         st.write(news.get('summary', ''))
+                                         url = news.get("url", "#")
+                                         date = news.get("date", "")
+                                         st.markdown(f"[🔗 Source ({date})]({url})")
+                                         st.divider()
+
+                # Run the asyncio event loop
+                asyncio.run(run_parallel_scans())
+                
+                log_container.success("News Digest Complete (Parallel Mode).")
 
     st.divider()
     
@@ -1863,7 +1926,12 @@ If no relevant books exist, suggest what types of books to add."""
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
                         if st.button("🔗 Open", key=f"open_{doc['doc_id']}"):
-                            st.markdown(f"[Open File](file:///{doc['file_path']})")
+                            file_path = doc.get('file_path', '')
+                            if file_path and os.path.exists(file_path):
+                                os.startfile(file_path)
+                                st.success(f"Opening: {os.path.basename(file_path)}")
+                            else:
+                                st.error(f"File not found: {file_path}")
                     with col_d2:
                         if st.button("🗑️ Delete", key=f"del_{doc['doc_id']}"):
                             vector_store.delete_document_chunks(doc["doc_id"])
@@ -1884,6 +1952,10 @@ If no relevant books exist, suggest what types of books to add."""
         if mode == "🔍 Q&A":
             st.caption("Ask any question - I'll search your documents and provide answers with citations.")
             
+            # Initialize session state for Q&A sources
+            if "library_qa_sources" not in st.session_state:
+                st.session_state.library_qa_sources = []
+            
             # Display chat history
             for msg in st.session_state.library_chat_history:
                 with st.chat_message(msg["role"]):
@@ -1901,6 +1973,22 @@ If no relevant books exist, suggest what types of books to add."""
                     full_response = ""
                     
                     try:
+                        # Get sources for display (before streaming)
+                        search_results = vector_store.search(prompt, top_k=5)
+                        # Group by doc_id to avoid duplicates
+                        seen_docs = set()
+                        unique_sources = []
+                        for r in search_results:
+                            doc_id = r.get("doc_id", "")
+                            if doc_id and doc_id not in seen_docs:
+                                seen_docs.add(doc_id)
+                                unique_sources.append({
+                                    "title": r.get("title", "Unknown"),
+                                    "file_path": r.get("file_path", ""),
+                                    "chapter": r.get("chapter", "")
+                                })
+                        st.session_state.library_qa_sources = unique_sources
+                        
                         # Stream RAG response
                         stream_gen = rag_engine.query(prompt, top_k=5, stream=True)
                         
@@ -1915,10 +2003,44 @@ If no relevant books exist, suggest what types of books to add."""
                         error_msg = f"❌ Error: {str(e)}"
                         message_placeholder.markdown(error_msg)
             
+            # Show source books with covers (after response)
+            if st.session_state.library_qa_sources:
+                st.divider()
+                st.markdown("### 📖 Source Books")
+                
+                cover_extractor = CoverExtractor()
+                cols = st.columns(min(len(st.session_state.library_qa_sources), 4))
+                
+                for idx, source in enumerate(st.session_state.library_qa_sources[:4]):
+                    with cols[idx]:
+                        with st.container(border=True):
+                            file_path = source.get("file_path", "")
+                            cover_path = cover_extractor.get_cover(file_path, width=200)
+                            
+                            if cover_path and os.path.exists(cover_path):
+                                st.image(cover_path, use_container_width=True)
+                            else:
+                                st.markdown("""
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                            height: 150px; border-radius: 8px; display: flex; 
+                                            align-items: center; justify-content: center;">
+                                    <span style="font-size: 36px;">📕</span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            
+                            title = source.get("title", "Unknown")
+                            st.markdown(f"**{title[:25]}{'...' if len(title) > 25 else ''}**")
+                            
+                            if file_path and os.path.exists(file_path):
+                                if st.button("📖 Open", key=f"qa_open_{idx}", use_container_width=True):
+                                    os.startfile(file_path)
+                                    st.toast(f"Opening {title[:20]}...")
+            
             # Clear history button
             if st.session_state.library_chat_history:
                 if st.button("🗑️ Clear Chat"):
                     st.session_state.library_chat_history = []
+                    st.session_state.library_qa_sources = []
                     st.rerun()
         
         else:  # Learning Recommendations
@@ -1929,16 +2051,92 @@ If no relevant books exist, suggest what types of books to add."""
                 placeholder="e.g., LangChain, prompt engineering, RAG systems..."
             )
             
+            # Initialize session state for recommendations
+            if "library_recommendations" not in st.session_state:
+                st.session_state.library_recommendations = None
+            
             if st.button("🎯 Get Recommendations", type="primary", disabled=not topic_input):
                 with st.spinner("Analyzing your library..."):
                     result = rag_engine.recommend_learning(topic_input, top_k=10)
+                    st.session_state.library_recommendations = result
+            
+            # Display stored recommendations (persists after button clicks)
+            result = st.session_state.library_recommendations
+            if result and result.get("success"):
+                st.markdown("### 📚 Learning Recommendations")
+                st.markdown(result.get("recommendations_text", "No recommendations found."))
+                
+                # Show recommended books with covers
+                source_docs = result.get("source_documents", [])
+                if source_docs:
+                    st.divider()
+                    st.markdown("### 📖 Recommended Books")
                     
-                    if result.get("success"):
-                        st.markdown("### 📚 Learning Recommendations")
-                        st.markdown(result.get("recommendations_text", "No recommendations found."))
-                        
-                        st.divider()
-                        st.caption(f"Analyzed {result.get('chunks_analyzed', 0)} sections from {len(result.get('source_documents', []))} documents")
-                    else:
-                        st.warning(result.get("error", "Could not generate recommendations."))
+                    # Initialize cover extractor
+                    cover_extractor = CoverExtractor()
+                    
+                    # Display books in a grid
+                    cols = st.columns(3)
+                    
+                    # CSS to make all book cards same height
+                    st.markdown("""
+                    <style>
+                    [data-testid="stVerticalBlock"] > div:has(> [data-testid="stImage"]) {
+                        height: 280px !important;
+                        overflow: hidden;
+                        display: flex;
+                        align-items: flex-start;
+                    }
+                    [data-testid="stVerticalBlock"] > div:has(> [data-testid="stImage"]) img {
+                        object-fit: contain;
+                        max-height: 280px;
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    for idx, doc in enumerate(source_docs[:6]):  # Top 6 books
+                        with cols[idx % 3]:
+                            with st.container(border=True):
+                                # Get cover image (300px for better quality)
+                                file_path = doc.get("file_path", "")
+                                cover_path = cover_extractor.get_cover(file_path, width=300)
+                                
+                                if cover_path and os.path.exists(cover_path):
+                                    st.image(cover_path, use_container_width=True)
+                                else:
+                                    # Fallback placeholder
+                                    st.markdown("""
+                                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                                height: 280px; width: 100%; border-radius: 8px; display: flex; 
+                                                align-items: center; justify-content: center;">
+                                        <span style="font-size: 48px;">📕</span>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                
+                                # Book title
+                                title = doc.get("title", "Unknown")
+                                st.markdown(f"**{title[:40]}{'...' if len(title) > 40 else ''}**")
+                                
+                                # Relevant chapters
+                                chapters = doc.get("chapters", [])
+                                if chapters:
+                                    st.caption(f"📑 {', '.join(chapters[:2])}")
+                                
+                                # Open button
+                                if file_path and os.path.exists(file_path):
+                                    if st.button("📖 Open Book", key=f"rec_open_{idx}", use_container_width=True):
+                                        os.startfile(file_path)
+                                        st.toast(f"Opening {title[:30]}...")
+                                else:
+                                    st.caption("📂 File not found")
+                
+                st.divider()
+                st.caption(f"Analyzed {result.get('chunks_analyzed', 0)} sections from {len(source_docs)} documents")
+                
+                # Clear results button
+                if st.button("🔄 Clear & Search Again", type="secondary"):
+                    st.session_state.library_recommendations = None
+                    st.rerun()
+            elif result:
+                st.warning(result.get("error", "Could not generate recommendations."))
 
