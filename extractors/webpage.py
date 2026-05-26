@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 class WebPageExtractor:
     """Extract main content from web pages"""
 
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 10):
         self.timeout = timeout
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

@@ -3,6 +3,7 @@ streamlit>=1.30.0
 
 # LLM
 ollama>=0.1.0
+sentence-transformers>=2.2.0
 
 # Content extraction
 youtube-transcript-api>=0.6.2
@@ -17,3 +18,4 @@ PyMuPDF>=1.23.0
 # Utilities
 python-dotenv>=1.0.0
 validators>=0.22.0
+PyYAML>=6.0.0

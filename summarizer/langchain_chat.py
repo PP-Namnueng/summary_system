@@ -170,6 +170,27 @@ class LangChainChat:
             
         except Exception as e:
             return f"❌ Error: {str(e)}"
+            
+    def export_to_dict(self) -> list:
+        """Export the chat history to a list of dictionaries for JSON serialization."""
+        messages_out = []
+        for msg in self.chat_history.messages:
+            if isinstance(msg, HumanMessage):
+                messages_out.append({"role": "user", "content": msg.content})
+            elif isinstance(msg, AIMessage):
+                messages_out.append({"role": "assistant", "content": msg.content})
+        return messages_out
+        
+    def load_from_dict(self, messages: list):
+        """Load chat history from a list of dictionaries, replacing any existing memory."""
+        self.chat_history.clear()
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if role == "user":
+                self.chat_history.add_user_message(content)
+            elif role == "assistant":
+                self.chat_history.add_ai_message(content)
 
 
 # Singleton instance for Streamlit session

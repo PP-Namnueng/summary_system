@@ -9,6 +9,7 @@ from integrations import find_obsidian_vaults
 from agents.observer import ObserverAgent # Autopilot
 from agents.sentinel import SentinelAgent
 import re
+from evals.config import load_eval_config
 from pages_ui import (
     render_sentinel, 
     render_autopilot, 
@@ -108,8 +109,15 @@ def get_cached_vaults():
     return find_obsidian_vaults()
 
 
+@st.cache_data(ttl=30)
+def get_app_config():
+    """Load local runtime config for evaluation and provider contracts."""
+    return load_eval_config()
+
+
 def main():
     initialize_session_state()
+    app_config = get_app_config()
     
     # Sidebar
     with st.sidebar:
@@ -132,6 +140,51 @@ def main():
             disabled=st.session_state.is_processing
         )
         st.divider()
+
+        # --- CHAT SESSIONS SECTION ---
+        if app_mode == "💬 Chat":
+            from library.chat_store import ChatStore
+            chat_store = ChatStore()
+            
+            # Initialize current chat id if not set
+            if "current_chat_id" not in st.session_state:
+                st.session_state.current_chat_id = None
+                
+            st.markdown("### 📝 Recent Chats")
+            
+            # New Chat Button
+            if st.button("➕ New Chat", use_container_width=True, type="primary"):
+                st.session_state.current_chat_id = None
+                if "langchain_chat" in st.session_state:
+                    st.session_state.langchain_chat.clear_memory()
+                st.session_state.chat_history = []
+                st.rerun()
+                
+            sessions = chat_store.list_sessions()
+            if sessions:
+                st.markdown("<div style='max-height: 300px; overflow-y: auto;'>", unsafe_allow_html=True)
+                for session in sessions:
+                    # Highlight active session
+                    is_active = session['id'] == st.session_state.current_chat_id
+                    btn_type = "primary" if is_active else "secondary"
+                    
+                    if st.button(
+                        f"💬 {session['title']}", 
+                        key=f"btn_{session['id']}", 
+                        use_container_width=True,
+                        type=btn_type
+                    ):
+                        st.session_state.current_chat_id = session['id']
+                        # Trigger reload in pages_ui
+                        if "langchain_chat" in st.session_state:
+                            st.session_state.langchain_chat.clear_memory()
+                        st.session_state.chat_history = [] 
+                        st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.caption("No past chats found.")
+                
+            st.divider()
 
         # --- INPUT SECTION (Only show if NOT Home) ---
         # Optional: Hide input on home to avoid redundancy, or keep for consistency.
@@ -282,25 +335,25 @@ def main():
         render_home_page()
     
     elif app_mode == "🛡️ Sentinel":
-        render_sentinel(st.session_state.sentinel_agent, selected_model)
+        render_sentinel(st.session_state.sentinel_agent, selected_model, app_config)
         
     elif app_mode == "👁️ Autopilot":
         # Check init
         if st.session_state.observer_agent is None:
              st.session_state.observer_agent = ObserverAgent(model_name=selected_model or "llama3.1")
-        render_autopilot(st.session_state.observer_agent, selected_model)
+        render_autopilot(st.session_state.observer_agent, selected_model, app_config)
     
     elif app_mode == "🕵️‍♂️ Deep Research":
-        render_deep_research(selected_model, language, ctx_size)
+        render_deep_research(selected_model, language, ctx_size, app_config)
 
     elif app_mode == "📚 Library":
-        render_library_page(selected_model, ctx_size)
+        render_library_page(selected_model, ctx_size, app_config)
 
     elif app_mode == "📝 Summary":
-        render_summary_page(selected_model, language, ctx_size, obsidian_enabled, vault_path, summary_folder, auto_save)
+        render_summary_page(selected_model, language, ctx_size, obsidian_enabled, vault_path, summary_folder, auto_save, app_config)
     
     elif app_mode == "💬 Chat":
-        render_chat_page(selected_model, ctx_size)
+        render_chat_page(selected_model, ctx_size, app_config)
     
     elif app_mode == "🎧 Podcast":
         render_podcast_page(selected_model, ctx_size)

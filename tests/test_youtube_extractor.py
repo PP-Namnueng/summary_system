@@ -5,7 +5,7 @@ Test YouTube Extractor functionality
 import sys
 import os
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -85,12 +85,16 @@ class TestYouTubeExtractor(unittest.TestCase):
     def test_multiple_url_patterns(self):
         """Test various YouTube URL patterns"""
         test_cases = [
-            ("https://youtube.com/watch?v=ABC123", "ABC123"),
-            ("https://www.youtube.com/watch?v=ABC123", "ABC123"),
-            ("https://youtube.com/v/ABC123", "ABC123"),
-            ("https://youtu.be/ABC123", "ABC123"),
-            ("https://www.youtube.com/shorts/ABC123", "ABC123"),
-            ("https://www.youtube.com/embed/ABC123", "ABC123"),
+            ("https://youtube.com/watch?v=ABC123abc12", "ABC123abc12"),
+            ("https://www.youtube.com/watch?v=ABC123abc12", "ABC123abc12"),
+            ("https://www.youtube.com/watch?si=share123&v=ABC123abc12&feature=youtu.be", "ABC123abc12"),
+            ("https://youtube.com/v/ABC123abc12", "ABC123abc12"),
+            ("https://youtu.be/ABC123abc12", "ABC123abc12"),
+            ("https://youtu.be/ABC123abc12?si=share123", "ABC123abc12"),
+            ("https://www.youtube.com/shorts/ABC123abc12", "ABC123abc12"),
+            ("https://m.youtube.com/shorts/ABC123abc12", "ABC123abc12"),
+            ("https://www.youtube.com/live/ABC123abc12?si=share123", "ABC123abc12"),
+            ("https://www.youtube.com/embed/ABC123abc12", "ABC123abc12"),
         ]
 
         for url, expected_id in test_cases:
@@ -106,16 +110,15 @@ class TestYouTubeExtractorIntegration(unittest.TestCase):
         """Set up test fixtures"""
         self.extractor = YouTubeExtractor()
 
-    @patch("youtube_transcript_api.YouTubeTranscriptApi.fetch")
-    def test_get_transcript_success(self, mock_fetch):
+    @patch.object(YouTubeExtractor, "_get_transcript_ytapi")
+    def test_get_transcript_success(self, mock_get_transcript_ytapi):
         """Test successful transcript retrieval"""
-        # Mock transcript response
-        mock_transcript = MagicMock()
-        mock_snippet = MagicMock()
-        mock_snippet.text = "This is a test transcript text"
-        mock_transcript.snippets = [mock_snippet, mock_snippet]
-        mock_transcript.language_code = "en"
-        mock_fetch.return_value = mock_transcript
+        mock_get_transcript_ytapi.return_value = {
+            "text": "This is a test transcript text This is a test transcript text",
+            "language": "en",
+            "video_id": "dQw4w9WgXcQ",
+            "success": True,
+        }
 
         result = self.extractor.get_transcript("dQw4w9WgXcQ")
 
@@ -127,21 +130,21 @@ class TestYouTubeExtractorIntegration(unittest.TestCase):
         self.assertEqual(result["language"], "en")
         self.assertEqual(result["video_id"], "dQw4w9WgXcQ")
 
-    @patch("youtube_transcript_api.YouTubeTranscriptApi.fetch")
-    def test_get_transcript_disabled(self, mock_fetch):
+    @patch.object(YouTubeExtractor, "_get_transcript_ytdlp", side_effect=Exception("yt-dlp also failed"))
+    @patch.object(YouTubeExtractor, "_get_transcript_direct", side_effect=Exception("direct failed"))
+    @patch.object(YouTubeExtractor, "_get_transcript_ytapi", side_effect=Exception("TranscriptsDisabled"))
+    def test_get_transcript_disabled(self, mock_ytapi, mock_direct, mock_ytdlp):
         """Test transcript when disabled"""
-        mock_fetch.side_effect = Exception("Transcripts are disabled")
-
         result = self.extractor.get_transcript("dQw4w9WgXcQ")
 
         self.assertFalse(result["success"])
         self.assertIn("disabled", result["error"].lower())
 
-    @patch("youtube_transcript_api.YouTubeTranscriptApi.fetch")
-    def test_get_transcript_unavailable(self, mock_fetch):
+    @patch.object(YouTubeExtractor, "_get_transcript_ytdlp", side_effect=Exception("yt-dlp also failed"))
+    @patch.object(YouTubeExtractor, "_get_transcript_direct", side_effect=Exception("direct failed"))
+    @patch.object(YouTubeExtractor, "_get_transcript_ytapi", side_effect=Exception("VideoUnavailable"))
+    def test_get_transcript_unavailable(self, mock_ytapi, mock_direct, mock_ytdlp):
         """Test transcript when video unavailable"""
-        mock_fetch.side_effect = Exception("Video is unavailable")
-
         result = self.extractor.get_transcript("dQw4w9WgXcQ")
 
         self.assertFalse(result["success"])

@@ -8,6 +8,23 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncio
 
+# Pre-initialize heavy resources on startup
+def init_resources():
+    """Pre-load models and connections to avoid first-request delay."""
+    print("🔧 Pre-initializing resources...")
+    try:
+        # Warm up Ollama connection
+        s = get_summarizer()
+        print(f"✅ Summarizer ready (model: {s.model})")
+    except Exception as e:
+        print(f"⚠️  Could not pre-initialize summarizer: {e}")
+    
+    try:
+        ds = get_doc_store()
+        print(f"✅ Document store ready")
+    except Exception as e:
+        print(f"⚠️  Could not pre-initialize doc store: {e}")
+
 # Import our modules
 from summarizer import OllamaSummarizer
 from extractors import YouTubeExtractor, WebPageExtractor, PDFExtractor
@@ -37,10 +54,16 @@ vector_store = None
 rag_engine = None
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on server startup."""
+    await asyncio.to_thread(init_resources)
+
+
 def get_summarizer(model: str = "llama3.1", ctx_size: int = 8192) -> OllamaSummarizer:
     """Get or create summarizer instance."""
     global summarizer
-    if summarizer is None or summarizer.model != model:
+    if summarizer is None or summarizer.model != model or summarizer.num_ctx != ctx_size:
         summarizer = OllamaSummarizer(model=model, num_ctx=ctx_size)
     return summarizer
 
@@ -176,7 +199,7 @@ async def summarize(request: SummarizeRequest):
             else:
                 extractor = WebPageExtractor()
             
-            result = extractor.extract(request.url)
+            result = await asyncio.to_thread(extractor.extract, request.url)
             if not result.get("success"):
                 return SummarizeResponse(success=False, error=result.get("error", "Extraction failed"))
             
@@ -189,7 +212,8 @@ async def summarize(request: SummarizeRequest):
         
         # Summarize
         summarizer = get_summarizer(request.model, request.ctx_size)
-        result = summarizer.summarize(
+        result = await asyncio.to_thread(
+            summarizer.summarize,
             content=content,
             language=request.language,
             template=request.template,
@@ -228,7 +252,7 @@ async def chat(request: ChatRequest):
         if request.use_library_rag and not context:
             try:
                 vs = get_vector_store()
-                results = vs.search(request.message, top_k=3)
+                results = await asyncio.to_thread(vs.search, request.message, top_k=3)
                 if results:
                     context = "\n\n".join([
                         f"From '{r.get('title', 'Unknown')}': {r.get('text', '')[:500]}"
@@ -238,7 +262,8 @@ async def chat(request: ChatRequest):
                 pass
         
         # Chat
-        result = summarizer.chat(
+        result = await asyncio.to_thread(
+            summarizer.chat,
             message=request.message,
             context=context,
             history=request.history,
@@ -270,15 +295,23 @@ async def research(request: ResearchRequest):
         summarizer = get_summarizer(request.model)
         agent = ResearchAgent(summarizer=summarizer)
         
-        # Collect results (non-streaming)
+        # Collect results (non-streaming) - run in thread
         full_report = ""
         sources = []
         
-        for update in agent.research_topic(
-            topic=request.topic,
-            max_sources=request.max_sources,
-            language=request.language
-        ):
+        def run_research():
+            updates = []
+            for update in agent.research_topic(
+                topic=request.topic,
+                max_sources=request.max_sources,
+                language=request.language
+            ):
+                updates.append(update)
+            return updates
+        
+        research_updates = await asyncio.to_thread(run_research)
+        
+        for update in research_updates:
             if isinstance(update, str):
                 continue  # Status update
             elif isinstance(update, dict):
@@ -307,7 +340,7 @@ async def library_search(request: LibrarySearchRequest):
     """
     try:
         vs = get_vector_store()
-        results = vs.search(request.query, top_k=request.top_k)
+        results = await asyncio.to_thread(vs.search, request.query, top_k=request.top_k)
         
         return LibrarySearchResponse(
             success=True,
@@ -325,8 +358,8 @@ async def library_stats():
         ds = get_doc_store()
         vs = get_vector_store()
         
-        doc_stats = ds.get_stats()
-        vec_stats = vs.get_stats()
+        doc_stats = await asyncio.to_thread(ds.get_stats)
+        vec_stats = await asyncio.to_thread(vs.get_stats)
         
         return LibraryStatsResponse(
             total_documents=doc_stats.get("total_documents", 0),
@@ -343,7 +376,7 @@ async def library_documents():
     """List all documents in the library."""
     try:
         ds = get_doc_store()
-        documents = ds.list_documents()
+        documents = await asyncio.to_thread(ds.list_documents)
         return {"success": True, "documents": documents}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -354,7 +387,7 @@ async def list_models():
     """List available Ollama models."""
     try:
         summarizer = get_summarizer()
-        models = summarizer.get_available_models()
+        models = await asyncio.to_thread(summarizer.get_available_models)
         return {"success": True, "models": models}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -384,7 +417,7 @@ async def sentinel_trending():
     try:
         from agents.sentinel import SentinelAgent
         sentinel = SentinelAgent()
-        trending = sentinel.get_trending()
+        trending = await asyncio.to_thread(sentinel.get_trending)
         return {"success": True, "trending": trending}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -396,7 +429,7 @@ async def sentinel_scan():
     try:
         from agents.sentinel import SentinelAgent
         sentinel = SentinelAgent()
-        results = sentinel.scan_sources()
+        results = await asyncio.to_thread(sentinel.scan_sources)
         return {"success": True, "results": results}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -419,7 +452,8 @@ async def tts_generate(request: TTSRequest):
         output_name = request.output_name or f"tts_{uuid.uuid4().hex[:8]}"
         output_path = f"sentinel_outputs/{output_name}.mp3"
         
-        result = runner.generate(
+        result = await asyncio.to_thread(
+            runner.generate,
             text=request.text,
             voice=request.voice,
             output_path=output_path
@@ -459,7 +493,8 @@ async def obsidian_export(request: ObsidianExportRequest):
         from integrations.obsidian import ObsidianIntegration
         
         obsidian = ObsidianIntegration()
-        result = obsidian.export_note(
+        result = await asyncio.to_thread(
+            obsidian.export_note,
             title=request.title,
             content=request.content,
             tags=request.tags or []
@@ -476,9 +511,10 @@ async def obsidian_status():
     try:
         from integrations.obsidian import ObsidianIntegration
         obsidian = ObsidianIntegration()
+        is_configured = await asyncio.to_thread(obsidian.is_configured)
         return {
             "success": True,
-            "configured": obsidian.is_configured(),
+            "configured": is_configured,
             "vault_path": str(obsidian.vault_path) if hasattr(obsidian, 'vault_path') else None
         }
     except Exception as e:
@@ -505,7 +541,7 @@ async def library_upload(file: UploadFile = File(...)):
         # Process the PDF
         from library.pdf_processor import PDFProcessor
         processor = PDFProcessor()
-        result = processor.process(tmp_path, title=file.filename)
+        result = await asyncio.to_thread(processor.process, tmp_path, title=file.filename)
         
         # Add to document store
         ds = get_doc_store()

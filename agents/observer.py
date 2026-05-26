@@ -5,12 +5,14 @@ import asyncio
 from duckduckgo_search import DDGS
 from summary.summarizer import OllamaSummarizer
 from library.github_provider import GitHubProvider
+from evals.queue import LLMQueue, get_shared_llm_queue
 
 class ObserverAgent:
-    def __init__(self, watchlist_path="data/watchlist.json", model_name="llama3.1"):
+    def __init__(self, watchlist_path="data/watchlist.json", model_name="llama3.1", llm_queue: LLMQueue = None):
         self.watchlist_path = watchlist_path
         self.model_name = model_name
         self.summarizer = OllamaSummarizer(model=model_name)
+        self.llm_queue = llm_queue or get_shared_llm_queue("ollama", max_concurrency=1)
         self.watchlist = self._load_watchlist()
 
     def _load_watchlist(self):
@@ -123,7 +125,7 @@ class ObserverAgent:
                 Output JSON ONLY:"""
 
                 try:
-                    resp = self.summarizer._generate_response(prompt)
+                    resp = self.llm_queue.run(self.summarizer._generate_response, prompt)
                     output_text = resp.get("summary", "").strip()
                     
                     # Clean markdown code blocks if present
@@ -205,7 +207,7 @@ class ObserverAgent:
         """
         
         try:
-            resp_obj = self.summarizer._generate_response(prompt)
+            resp_obj = self.llm_queue.run(self.summarizer._generate_response, prompt)
             
             if not resp_obj.get("success"):
                 return {"top_news": [], "error": f"LLM Generation failed: {resp_obj.get('error')}"}

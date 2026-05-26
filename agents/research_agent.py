@@ -5,11 +5,13 @@ Searches the web and synthesizes multiple sources into a comprehensive report.
 from ddgs import DDGS
 from extractors import WebPageExtractor
 from summarizer import OllamaSummarizer
+from evals.queue import LLMQueue, get_shared_llm_queue
 import concurrent.futures
 
 class ResearchAgent:
-    def __init__(self, summarizer: OllamaSummarizer = None):
+    def __init__(self, summarizer: OllamaSummarizer = None, llm_queue: LLMQueue = None):
         self.summarizer = summarizer or OllamaSummarizer()
+        self.llm_queue = llm_queue or get_shared_llm_queue("ollama", max_concurrency=1)
         self.extractor = WebPageExtractor()
 
     def search_web(self, topic: str, max_results: int = 5) -> list[dict]:
@@ -28,6 +30,23 @@ class ResearchAgent:
             # Return empty - will be handled by caller
                 
         return results
+    
+    def _extract_single_source(self, res: dict) -> dict:
+        """Extract content from a single source - helper for threading"""
+        url = res.get('href')
+        title = res.get('title')
+        
+        try:
+            extraction = self.extractor.extract(url)
+            if extraction['success']:
+                return {
+                    "title": title,
+                    "url": url,
+                    "text": extraction['text'][:10000]  # Limit per source
+                }
+        except Exception as e:
+            print(f"Failed to extract {url}: {e}")
+        return None
 
     def research_topic(self, topic: str, max_sources: int = 3, language: str = "th"):
         """
@@ -44,23 +63,27 @@ class ResearchAgent:
 
         yield f"📚 Found {len(search_results)} sources. Reading content..."
         
-        # 2. Extract Content (Sequential for now to respect rate limits/complexity)
+        # 2. Extract Content (Parallel with thread pool)
         contents = []
-        for i, res in enumerate(search_results):
-            url = res.get('href')
-            title = res.get('title')
-            yield f"📖 Reading ({i+1}/{len(search_results)}): {title}..."
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_res = {
+                executor.submit(self._extract_single_source, res): res 
+                for res in search_results
+            }
             
-            try:
-                extraction = self.extractor.extract(url)
-                if extraction['success']:
-                    contents.append({
-                        "title": title,
-                        "url": url,
-                        "text": extraction['text'][:10000] # Limit per source
-                    })
-            except Exception as e:
-                print(f"Failed to extract {url}: {e}")
+            for i, future in enumerate(as_completed(future_to_res)):
+                res = future_to_res[future]
+                title = res.get('title', 'Unknown')
+                yield f"📖 Reading ({i+1}/{len(search_results)}): {title}..."
+                
+                try:
+                    result = future.result(timeout=15)
+                    if result:
+                        contents.append(result)
+                except Exception as e:
+                    print(f"Failed to extract {res.get('href')}: {e}")
         
         if not contents:
             yield "❌ Failed to extract content from any source."
@@ -82,12 +105,12 @@ class ResearchAgent:
         prompt = self._get_research_prompt(topic, combined_text, language)
         
         # Stream the synthesis
-        response_gen = self.summarizer._stream_response(prompt)
-        
         full_report = ""
-        for chunk in response_gen:
-            full_report += chunk
-            yield {"type": "chunk", "content": chunk}
+        with self.llm_queue.slot():
+            response_gen = self.summarizer._stream_response(prompt)
+            for chunk in response_gen:
+                full_report += chunk
+                yield {"type": "chunk", "content": chunk}
             
         yield {"type": "complete", "report": full_report, "sources": search_results}
 

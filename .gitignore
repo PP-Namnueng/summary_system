@@ -14,6 +14,7 @@ tts_env/
 # Data & Large Files
 library/
 data/library_index/
+data/traces/
 *.mp3
 *.wav
 
@@ -24,6 +25,8 @@ audit_report.txt
 install_log.txt
 sanity*.txt
 *.log
+config.local.yaml
+reports/
 
 # IDE
 .vscode/

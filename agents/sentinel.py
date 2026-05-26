@@ -5,15 +5,17 @@ import datetime
 from agents.observer import ObserverAgent
 from generators.podcast_generator import PodcastGenerator
 from summarizer.ollama_client import OllamaSummarizer
+from evals.queue import LLMQueue, get_shared_llm_queue
 import re
 import requests
 import asyncio
 
 class SentinelAgent:
-    def __init__(self, data_file="data/sources.json", output_dir="sentinel_outputs"):
+    def __init__(self, data_file="data/sources.json", output_dir="sentinel_outputs", llm_queue: LLMQueue = None):
         self.data_file = data_file
         self.output_dir = output_dir
         self.sources = self._load_sources()
+        self.llm_queue = llm_queue or get_shared_llm_queue("ollama", max_concurrency=1)
         
         # Initialize dependencies
         # We can reuse OllamaSummarizer configurations if passed, but for now defaults
@@ -204,7 +206,7 @@ class SentinelAgent:
             
             Task: Summarize this update into a concise, informative paragraph suitable for a casual reader.
             """
-            summary_resp = self.summarizer._generate_response(summary_prompt)
+            summary_resp = self.llm_queue.run(self.summarizer._generate_response, summary_prompt)
             summary_text = summary_resp.get("summary", item['summary'])
             
             # 2. Generate Podcast
